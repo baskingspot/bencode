@@ -5,6 +5,11 @@ All notable changes to this project are documented here. The format is
 
 ## [Unreleased]
 
+### Changed
+
+- `bencode` builds with Zig 0.16 and 0.17. `minimum_zig_version` stays
+  `0.16.0`, and CI tests both versions.
+
 ## [0.1.0] - 2026-11-01
 
 ### Added

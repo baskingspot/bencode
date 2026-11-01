@@ -49,7 +49,7 @@ const bencode = b.dependency("bencode", .{ .target = target, .optimize = optimiz
 exe.root_module.addImport("bencode", bencode.module("bencode"));
 ```
 
-`bencode` builds with Zig 0.16 only.
+`bencode` builds with Zig 0.16 and 0.17.
 
 ## Documentation
 

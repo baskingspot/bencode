@@ -15,18 +15,22 @@ makes key order canonical in both the tree and the output.
 
 ## Environment
 
-Zig 0.16 only. The flake is the tool contract, from `baskingspot/nix`:
-`nix develop` provides Zig, `ziglint`, `baskingspot-lint`, the docs tools, and
-the base tools, and nothing comes from the system PATH. The justfile is the
-command interface: `just test`, `just lint`, `just ci`. Run `just fmt` before
-you commit.
+Zig 0.16 and 0.17. The flake is the tool contract, from `baskingspot/nix`:
+`nix develop` is the current stable, Zig 0.17, and `nix develop .#zig-old` is
+Zig 0.16. Both provide Zig, `ziglint-0-16`, `baskingspot-lint`, the docs tools,
+and the base tools, and nothing comes from the system PATH. The justfile is the
+command interface: `just test`, `just check`, `just lint`, `just ci`. Run
+`just fmt` before you commit. CI runs `just ci` on the default shell and
+`just check` on `zig-old`.
 
 Tests run under testingx, the org's test runner, a lazy dependency. Every
-`addTest` carries `.test_runner = .{ .path = dep.path("src/runner.zig"), .mode = .simple }`
-and a `--seed` argument.
+`addTest` carries `.test_runner = .{ .path = dep.path("src/runner.zig"), .mode = .simple }`;
+the runner picks and prints its own seed.
 
 `stdx` is a normal dependency, not lazy: `Dict` is part of the public API, and
-a consumer resolves it through the module's own import.
+a consumer resolves it through the module's own import. Both `stdx` and
+`testingx` are pinned by commit until each tags a dual-version release; move
+them to the baskingspot.dev URL then.
 
 The guide's examples in `docs/examples/` compile against the public module and
 run with `just test`. A snippet in the guide that does not build is a bug.

@@ -5,12 +5,12 @@
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .stdx = .{
-            .url = "https://baskingspot.dev/stdx/v0.2.1.tar.gz",
-            .hash = "stdx-0.2.1-CcWeglgRDwC67JAFPaVw4nAfzZrKYDEVtMPY7KPiDRWS",
+            .url = "git+https://github.com/baskingspot/stdx#c4a2f7cdf683e3382a6c636bd0a4d8744d37bbce",
+            .hash = "stdx-0.2.1-CcWegrQnDwCQbzA80h9ZBDn-cbjp_WbGZC65tCsiphpv",
         },
         .testingx = .{
-            .url = "https://baskingspot.dev/testingx/v0.3.0.tar.gz",
-            .hash = "testingx-0.3.0-ib95-2tXAwAmz8ZshsAcHR2UiaNfHqG_mzBe0JTTPLs4",
+            .url = "git+https://github.com/baskingspot/testingx#4f9a44c2224b5f37e0ca94110f817e02774a6bc0",
+            .hash = "testingx-0.3.0-ib95-9peAwBo6YXlj5M3PrJ7H8Rv87660dwKMXxewo5C",
             .lazy = true,
         },
     },
