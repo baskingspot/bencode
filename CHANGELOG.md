@@ -7,9 +7,11 @@ All notable changes to this project are documented here. The format is
 
 ### Added
 
-- `Reader`: one value at a time from a slice, with `ListReader` and
-  `DictReader` nested over the same cursor, zero-copy byte strings, and `raw`
-  for a container's exact bytes.
+- `Scanner`: the bencode grammar over buffers the caller feeds, with
+  `error.BufferUnderrun` when a feed runs out and a cursor for slicing a
+  container back out of the input.
+- `Reader`: the scanner driven from any `std.Io.Reader`, with borrowed byte
+  strings and `nextAlloc` when the caller needs to own one.
 - `decode` and `decodeLeaky`: a whole value as a `Value` tree, with `Document`
   owning the arena.
 - `Dict`: `stdx`'s byte-ordered map, so keys are always in the order bencode

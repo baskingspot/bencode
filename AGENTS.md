@@ -7,9 +7,10 @@ Working notes for AI coding agents in baskingspot/bencode.
 Bencode in Zig: an incremental reader, a value tree, and a writer. It is
 incubating: unstable, with no promises about its API.
 
-The reader walks a slice one value at a time and hands back a nested reader
-for each container. `decode` builds the whole tree. Byte strings borrow the
-input; nothing is copied. `Dict` is `stdx.btree.String(Value)`, which is what
+`Scanner` holds the grammar over buffers the caller feeds; `Reader` drives one
+from an `std.Io.Reader`, with the same split `std.json.Scanner` and
+`std.json.Reader` use. `decode` builds the whole tree. Byte strings borrow the
+buffer they arrived in. `Dict` is `stdx.btree.String(Value)`, which is what
 makes key order canonical in both the tree and the output.
 
 ## Environment
@@ -50,18 +51,26 @@ run with `just test`. A snippet in the guide that does not build is a bug.
 - To graduate the project, follow the `baskingspot-new-repo` skill: logos, a
   real README, and the audit passing.
 
-## Reader invariants
+## Scanner and reader
 
-- A `ListReader` or `DictReader` borrows the cursor. Finish the inner reader
-  before asking the outer one for its next value.
-- `DictReader` rejects a key that does not sort after the one before it, so
-  duplicates fail with `error.UnsortedKey`. The map never sees a bad order.
-- Integers are canonical: no `+`, no leading zero, no `-0`. `stdx.fmt.atoiWith`
-  with `.leading_zeros = .reject` does most of it; the two bencode-only rules
-  live in `Reader.integer`.
-- Byte strings are cut by length, so `:` and `e` inside one are data.
-- `decode` refuses anything after the first value (`error.TrailingData`), and
-  stops at `max_depth` containers (`error.TooDeep`).
+- The scanner does no I/O. It returns `error.BufferUnderrun` when a feed runs
+  out and keeps its place for the next one.
+- A byte string token is one slice, so the scanner needs the whole payload in
+  one `feedInput`. `Reader` gathers a payload that does not fit into a single
+  allocation and frees it at the next call.
+- Tokens are positional, like `std.json.Token`: a dict emits `dict_begin`, a
+  `bytes` key, the value, then `dict_end`. The caller tracks position.
+- The scanner copies each dict key into its allocator, because the next feed
+  can invalidate the buffer the key came from and the order check needs it.
+  That is why `Scanner.init` takes an allocator.
+- Integers go through `stdx.fmt.atoiWith` with `.leading_zeros = .reject`, on
+  a 21-byte copy of the digits so a feed can split them. Bencode's two extra
+  rules (`+` and `-0`) live in `finishInteger`.
+- `Reader.next` returns byte strings valid until the next call. `nextAlloc`
+  copies into the caller's allocator and returns `allocated_bytes`.
+- `decode` feeds the whole input to a scanner and builds the tree. It rejects
+  anything after the first value (`error.TrailingData`) and stops at
+  `max_depth` containers (`error.TooDeep`).
 
 ## Changelog
 

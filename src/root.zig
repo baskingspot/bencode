@@ -1,9 +1,8 @@
 //! Bencode in Zig: an incremental reader, a value tree, and a writer.
 //!
-//! `Reader` yields one value at a time and hands back a nested reader for
-//! each container, so a caller can walk a torrent without building the tree.
-//! `decode` reads one value into a tree of `Value`s. Byte strings are slices
-//! into the input; nothing is copied, and the input must outlive the tree.
+//! `Scanner` parses buffers the caller feeds; `Reader` drives one from an
+//! `std.Io.Reader`. `decode` reads one value into a tree of `Value`s. Byte
+//! strings are slices into the input, and the input must outlive the tree.
 
 const std = @import("std");
 const Io = std.Io;
@@ -13,16 +12,12 @@ const ArenaAllocator = std.heap.ArenaAllocator;
 
 const btree = @import("stdx").btree;
 
-/// The incremental reader: one value at a time.
+/// The grammar, over buffers the caller feeds.
+pub const Scanner = @import("Scanner.zig");
+/// The scanner, driven from an `std.Io.Reader`.
 pub const Reader = @import("Reader.zig");
-/// One value as the reader yields it.
-pub const Token = Reader.Token;
-/// The inside of a list.
-pub const ListReader = Reader.ListReader;
-/// The inside of a dict.
-pub const DictReader = Reader.DictReader;
-/// One dict pair.
-pub const Entry = Reader.Entry;
+/// One token, as either one yields it.
+pub const Token = Scanner.Token;
 pub const Writer = @import("Writer.zig");
 
 /// How many containers deep a decode goes before it gives up.
@@ -63,9 +58,18 @@ pub const Value = union(enum) {
     }
 };
 
-/// What a decode can return: the reader's errors, the allocator's, a second
-/// value after the first, or a tree past `max_depth`.
-pub const DecodeError = Reader.Error || Allocator.Error || error{ TrailingData, TooDeep };
+/// What a decode can return: a malformed value, the allocator's error, a
+/// second value after the first, or a tree past `max_depth`.
+pub const DecodeError = Allocator.Error || error{
+    UnexpectedEof,
+    UnexpectedByte,
+    InvalidInteger,
+    InvalidLength,
+    Overflow,
+    UnsortedKey,
+    TrailingData,
+    TooDeep,
+};
 
 /// A decoded value and the memory that holds it.
 pub const Document = struct {
@@ -97,58 +101,83 @@ pub fn decode(allocator: Allocator, input: []const u8) DecodeError!Document {
 /// `Value.deinit` frees the containers, so a caller with no arena can hand
 /// the allocator back. The byte strings still borrow `input`.
 pub fn decodeLeaky(allocator: Allocator, input: []const u8) DecodeError!Value {
-    var reader: Reader = .init(input);
-    const token = try reader.next() orelse return error.UnexpectedEof;
+    var scanner: Scanner = .init(allocator);
+    defer scanner.deinit();
+    scanner.feedInput(input);
+    scanner.endInput();
 
-    var value = try decodeToken(allocator, token, max_depth);
+    var builder: Builder = .{ .scanner = &scanner, .allocator = allocator };
+    var value = try builder.value(max_depth) orelse return error.UnexpectedEof;
     errdefer value.deinit(allocator);
-    if (reader.pos != reader.input.len) return error.TrailingData;
+    if (try builder.next() != null) return error.TrailingData;
     return value;
 }
 
-fn decodeToken(allocator: Allocator, token: Token, remaining: u32) DecodeError!Value {
-    return switch (token) {
-        .int => |int| .{ .int = int },
-        .bytes => |bytes| .{ .bytes = bytes },
-        .list => |list| blk: {
-            if (remaining == 0) return error.TooDeep;
+const Builder = struct {
+    scanner: *Scanner,
+    allocator: Allocator,
 
-            var items: std.ArrayList(Value) = .empty;
-            errdefer {
-                for (items.items) |*item| item.deinit(allocator);
-                items.deinit(allocator);
-            }
+    /// The next token. The scanner was fed the whole input and ended, so it
+    /// never asks for more.
+    fn next(self: *Builder) DecodeError!?Token {
+        return self.scanner.next() catch |err| switch (err) {
+            error.BufferUnderrun => return error.UnexpectedEof,
+            else => |e| return e,
+        };
+    }
 
-            var list_reader = list;
-            while (try list_reader.next()) |item| {
-                var value = try decodeToken(allocator, item, remaining - 1);
-                errdefer value.deinit(allocator);
-                try items.append(allocator, value);
-            }
-            break :blk .{ .list = try items.toOwnedSlice(allocator) };
-        },
-        .dict => |dict| blk: {
-            if (remaining == 0) return error.TooDeep;
+    /// One value from the token stream. Null means a container closed, which
+    /// only a caller inside one accepts.
+    fn value(self: *Builder, remaining: u32) DecodeError!?Value {
+        const token = try self.next() orelse return error.UnexpectedEof;
+        return switch (token) {
+            .int => |int| .{ .int = int },
+            .bytes, .allocated_bytes => |bytes| .{ .bytes = bytes },
+            .list_begin => blk: {
+                if (remaining == 0) return error.TooDeep;
 
-            const map = try allocator.create(Dict);
-            map.* = .empty;
-            errdefer {
-                var it = map.iterator();
-                while (it.next()) |entry| entry.value_ptr.deinit(allocator);
-                map.clearAndFree(allocator);
-                allocator.destroy(map);
-            }
+                var items: std.ArrayList(Value) = .empty;
+                errdefer {
+                    for (items.items) |*item| item.deinit(self.allocator);
+                    items.deinit(self.allocator);
+                }
 
-            var dict_reader = dict;
-            while (try dict_reader.next()) |entry| {
-                var value = try decodeToken(allocator, entry.value, remaining - 1);
-                errdefer value.deinit(allocator);
-                try map.put(allocator, entry.key, value);
-            }
-            break :blk .{ .dict = map };
-        },
-    };
-}
+                while (true) {
+                    const item = try self.value(remaining - 1) orelse break;
+                    var slot = item;
+                    errdefer slot.deinit(self.allocator);
+                    try items.append(self.allocator, slot);
+                }
+                break :blk .{ .list = try items.toOwnedSlice(self.allocator) };
+            },
+            .dict_begin => blk: {
+                if (remaining == 0) return error.TooDeep;
+
+                const map = try self.allocator.create(Dict);
+                map.* = .empty;
+                errdefer {
+                    var it = map.iterator();
+                    while (it.next()) |entry| entry.value_ptr.deinit(self.allocator);
+                    map.clearAndFree(self.allocator);
+                    self.allocator.destroy(map);
+                }
+
+                while (true) {
+                    // A dict's key position holds a byte string or its `e`.
+                    const key_token = try self.next() orelse return error.UnexpectedEof;
+                    if (key_token == .dict_end) break;
+                    const key = key_token.bytes;
+                    const item = try self.value(remaining - 1) orelse return error.UnexpectedEof;
+                    var slot = item;
+                    errdefer slot.deinit(self.allocator);
+                    try map.put(self.allocator, key, slot);
+                }
+                break :blk .{ .dict = map };
+            },
+            .list_end, .dict_end => null,
+        };
+    }
+};
 
 test Value {
     const Case = struct {

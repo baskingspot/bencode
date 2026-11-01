@@ -11,10 +11,12 @@ Bencode is the format a torrent's metadata is written in: byte strings,
 integers, lists, and dicts. This reads a stream one value at a time, decodes
 one value into a tree you can walk, and writes it back.
 
-Byte strings are slices into the input, and `raw` on a finished container is
-the exact bytes it occupied, so a torrent's `info` hash is a hash of the
-bytes you already have. Keys come out in byte order because the dict is a
-sorted map, not an array that has to be sorted before writing.
+The reader wraps any `std.Io.Reader`; `Io.Reader.fixed(input)` is the slice
+case. A scanner does the grammar over whatever buffer the source hands over,
+and a byte string is a slice into it, copied only when the whole string does
+not fit. Keys come out in byte order because the dict is a sorted map, not an
+array that has to be sorted before writing. With the file in one buffer,
+`Scanner.cursor` gives the exact span a torrent's `info` hash covers.
 
 ```zig
 var document = try bencode.decode(gpa, input);
@@ -25,16 +27,16 @@ The library is incubating: pin a commit, and expect the API to move.
 
 ## What is in it
 
-- [Reading one value at a time](https://baskingspot.dev/bencode/#reading-one-value-at-a-time): `Reader.next` returns a `Token`; a list or a dict is a nested reader over the same cursor, and `raw` gives back a container's exact bytes.
+- [Reading a stream](https://baskingspot.dev/bencode/#reading-a-stream): `Reader` drives a `Scanner` from any `std.Io.Reader`; each `next` is one `Token`, and `nextAlloc` copies a byte string when it has to outlive the call.
 - [The value tree](https://baskingspot.dev/bencode/#the-value-tree): `decode` returns a `Document` over an arena; `Value` is `bytes`, `int`, `list`, or `dict`, and `Dict` is `stdx`'s ordered map.
 - [Writing](https://baskingspot.dev/bencode/#writing): `Value.format` writes a tree through `{f}`, and `Writer` takes the pieces when a tree is not what you have.
-- [Limits](https://baskingspot.dev/bencode/#limits): a slice in, byte strings that borrow it, and a fixed depth cap.
+- [Limits](https://baskingspot.dev/bencode/#limits): byte strings that borrow their input, and a fixed depth cap.
 
 Not implemented:
 
-- Streaming from an `std.Io.Reader`: `Reader.init` takes `[]const u8`, so a whole value is in memory before it is read.
-- Owned byte strings: `decode` borrows the input, and there is no mode that copies them into the arena.
+- Owned byte strings in `decode`: the tree borrows the input, and there is no mode that copies the strings into the arena. `Reader.nextAlloc` is the owning path.
 - A configurable depth cap: `max_depth` is 128, and `decode` takes no options.
+- A rewindable scanner: input moves forward only, so a token cannot be unread.
 
 ## Install
 
@@ -53,7 +55,7 @@ exe.root_module.addImport("bencode", bencode.module("bencode"));
 
 ## Documentation
 
-- The [guide](https://baskingspot.dev/bencode/) covers reading, the tree, and writing, with examples that compile.
+- The [guide](https://baskingspot.dev/bencode/) covers the scanner, the reader, the tree, and writing, with examples that compile.
 - The [API reference](https://baskingspot.dev/bencode/api/) documents every public symbol.
 - [`docs/examples/`](docs/examples/) is the code the guide shows, compiled by `just test`.
 - [`AGENTS.md`](AGENTS.md) has the working notes for the repository.
