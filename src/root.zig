@@ -12,10 +12,10 @@ const ArenaAllocator = std.heap.ArenaAllocator;
 
 const btree = @import("stdx").btree;
 
-/// The grammar, over buffers the caller feeds.
-pub const Scanner = @import("Scanner.zig");
 /// The scanner, driven from an `std.Io.Reader`.
 pub const Reader = @import("Reader.zig");
+/// The grammar, over buffers the caller feeds.
+pub const Scanner = @import("Scanner.zig");
 /// One token, as either one yields it.
 pub const Token = Scanner.Token;
 pub const Writer = @import("Writer.zig");

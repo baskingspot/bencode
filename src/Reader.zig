@@ -11,14 +11,15 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Io = std.Io;
 const Allocator = std.mem.Allocator;
-const Scanner = @import("Scanner.zig");
 const testing = std.testing;
+
+const Scanner = @import("Scanner.zig");
 const Token = Scanner.Token;
 
 const Reader = @This();
 
 scanner: Scanner,
-io: *Io.Reader,
+reader: *Io.Reader,
 /// The gathered payload for the token just returned, when one did not fit the
 /// source's buffer. Freed at the next call.
 scratch: ?[]u8,
@@ -47,7 +48,7 @@ pub const AllocWhen = enum {
 pub fn init(allocator: Allocator, io: *Io.Reader) Reader {
     return .{
         .scanner = .init(allocator),
-        .io = io,
+        .reader = io,
         .scratch = null,
         .allocator = allocator,
     };
@@ -88,14 +89,14 @@ pub fn nextAlloc(self: *Reader, allocator: Allocator, when: AllocWhen) Error!?To
 fn feed(self: *Reader) Error!void {
     if (self.scanner.wantsPayload()) return self.gatherPayload();
 
-    const buffered = self.io.buffered();
+    const buffered = self.reader.buffered();
     if (buffered.len > 0) {
         self.scanner.feedInput(buffered);
-        self.io.tossBuffered();
+        self.reader.tossBuffered();
         return;
     }
 
-    self.io.fillMore() catch |err| switch (err) {
+    self.reader.fillMore() catch |err| switch (err) {
         error.EndOfStream => {
             self.scanner.endInput();
             return;
@@ -114,7 +115,7 @@ fn gatherPayload(self: *Reader) Error!void {
     const buffer = try self.allocator.alloc(u8, total);
     errdefer self.allocator.free(buffer);
     @memcpy(buffer[0..have.len], have);
-    self.io.readSliceAll(buffer[have.len..]) catch |err| switch (err) {
+    self.reader.readSliceAll(buffer[have.len..]) catch |err| switch (err) {
         error.EndOfStream => return error.UnexpectedEof,
         error.ReadFailed => return error.ReadFailed,
     };

@@ -36,8 +36,7 @@ state: State,
 
 /// The integer being read, as its own text. Twenty-one bytes hold every
 /// `i64` and one digit past the longest.
-integer_text: [21]u8,
-integer_len: usize,
+integer_text: stdx.buffer.Array(u8, 21),
 /// The byte string being read.
 length: usize,
 length_digits: usize,
@@ -96,8 +95,7 @@ pub fn init(allocator: Allocator) Scanner {
         .is_end_of_input = false,
         .stack = .empty,
         .state = .value,
-        .integer_text = undefined,
-        .integer_len = 0,
+        .integer_text = .empty,
         .length = 0,
         .length_digits = 0,
         .allocator = allocator,
@@ -183,7 +181,7 @@ fn value(self: *Scanner) Error!?Token {
     switch (byte) {
         'i' => {
             self.state = .integer;
-            self.integer_len = 0;
+            self.integer_text.clear();
             return null;
         },
         '0'...'9' => {
@@ -215,14 +213,11 @@ fn integer(self: *Scanner) Error!?Token {
         const byte = (try self.takeByte()) orelse return error.UnexpectedEof;
         switch (byte) {
             '-' => {
-                if (self.integer_len != 0) return error.InvalidInteger;
-                self.integer_text[self.integer_len] = '-';
-                self.integer_len += 1;
+                if (self.integer_text.len != 0) return error.InvalidInteger;
+                self.integer_text.appendAssumeCapacity('-');
             },
             '0'...'9' => {
-                if (self.integer_len == self.integer_text.len) return error.Overflow;
-                self.integer_text[self.integer_len] = byte;
-                self.integer_len += 1;
+                self.integer_text.append(byte) catch return error.Overflow;
             },
             'e' => {
                 const parsed = try self.finishInteger();
@@ -236,7 +231,7 @@ fn integer(self: *Scanner) Error!?Token {
 }
 
 fn finishInteger(self: Scanner) Error!i64 {
-    const text = self.integer_text[0..self.integer_len];
+    const text = self.integer_text.constSlice();
     // stdx takes `-0`; bencode does not.
     if (mem.eql(u8, text, "-0")) return error.InvalidInteger;
     return stdx.fmt.atoiWith(i64, text, .{ .leading_zeros = .reject }) catch |err| switch (err) {
