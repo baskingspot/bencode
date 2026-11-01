@@ -23,8 +23,6 @@ var document = try bencode.decode(gpa, input);
 defer document.deinit();
 ```
 
-The library is incubating: pin a commit, and expect the API to move.
-
 ## What is in it
 
 - [Reading a stream](https://baskingspot.dev/bencode/#reading-a-stream): `Reader` drives a `Scanner` from any `std.Io.Reader`; each `next` is one `Token`, and `nextAlloc` copies a byte string when it has to outlive the call.
@@ -41,7 +39,7 @@ Not implemented:
 ## Install
 
 ```sh
-zig fetch --save git+https://github.com/baskingspot/bencode
+zig fetch --save https://baskingspot.dev/bencode/v0.1.0.tar.gz
 ```
 
 Add the module in `build.zig`:

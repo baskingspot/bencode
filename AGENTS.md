@@ -4,8 +4,8 @@ Working notes for AI coding agents in baskingspot/bencode.
 
 ## What this is
 
-Bencode in Zig: an incremental reader, a value tree, and a writer. It is
-incubating: unstable, with no promises about its API.
+Bencode in Zig: an incremental reader, a value tree, and a writer. v0.1.0 is
+the first tag; the public API moves with semver.
 
 `Scanner` holds the grammar over buffers the caller feeds; `Reader` drives one
 from an `std.Io.Reader`, with the same split `std.json.Scanner` and

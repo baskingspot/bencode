@@ -1,6 +1,6 @@
 .{
     .name = .bencode,
-    .version = "0.0.0",
+    .version = "0.1.0",
     .fingerprint = 0xa92f3af38b4bf409, // Changing this has security and trust implications.
     .minimum_zig_version = "0.16.0",
     .dependencies = .{

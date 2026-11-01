@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format is
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-01
+
 ### Added
 
 - `Scanner`: the bencode grammar over buffers the caller feeds, with
