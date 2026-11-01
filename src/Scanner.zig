@@ -15,11 +15,13 @@
 //! one before it.
 
 const std = @import("std");
-const stdx = @import("stdx");
 const assert = std.debug.assert;
 const mem = std.mem;
 const Allocator = mem.Allocator;
 const testing = std.testing;
+const math = std.math;
+
+const stdx = @import("stdx");
 
 const Scanner = @This();
 
@@ -146,11 +148,11 @@ pub fn wantsPayload(self: Scanner) bool {
 pub fn next(self: *Scanner) Error!?Token {
     while (true) {
         if (self.atEnd()) return null;
-        const token = switch (self.state) {
-            .value => try self.value(),
-            .integer => try self.integer(),
-            .length => try self.byteLength(),
-            .payload => try self.payload(),
+        const token = try switch (self.state) {
+            .value => self.value(),
+            .integer => self.integer(),
+            .length => self.byteLength(),
+            .payload => self.payload(),
         };
         if (token) |done| return done;
     }
@@ -251,8 +253,8 @@ fn byteLength(self: *Scanner) Error!?Token {
             '0'...'9' => {
                 // A length is zero or starts with a non-zero digit.
                 if (self.length_digits == 1 and self.length == 0) return error.InvalidLength;
-                self.length = std.math.mul(usize, self.length, 10) catch return error.Overflow;
-                self.length = std.math.add(usize, self.length, byte - '0') catch return error.Overflow;
+                self.length = math.mul(usize, self.length, 10) catch return error.Overflow;
+                self.length = math.add(usize, self.length, byte - '0') catch return error.Overflow;
                 self.length_digits += 1;
             },
             else => return error.InvalidLength,
