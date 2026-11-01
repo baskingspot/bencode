@@ -1,0 +1,4 @@
+jobs:
+  - recipe: test
+  - recipe: lint
+  - recipe: doc
