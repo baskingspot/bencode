@@ -166,8 +166,8 @@ const name = root.get("name").?.bytes;
 ```
 
 `Dict` is `stdx.btree.String(Value)`, so it has `get`, `put`, `iterator`,
-`count`, and `clearAndFree`. Iteration is in key order, which is the order
-bencode requires, so a decoded tree writes back canonically.
+`count`, and `clearAndFree`. Iteration is in key order, so a decoded tree
+writes back canonically.
 
 ## Own the memory yourself
 
@@ -187,7 +187,7 @@ allocator, free it with `value.deinit(gpa)`.
 
 ## Write a tree
 
-`Value` implements `format`, so a fixed buffer or a file takes it directly:
+`Value.format` writes to any `std.Io.Writer`:
 
 ```zig
 var buf: [128]u8 = undefined;
@@ -195,12 +195,12 @@ var writer: std.Io.Writer = .fixed(&buf);
 try writer.print("{f}", .{document.value});
 ```
 
-Dict keys come out in byte order because they went in that way. The writer
-does not sort.
+Keys come out in byte order because the dict is sorted. The writer does not
+sort.
 
 ## Write the pieces
 
-When the tree is not what you have, `Writer` takes the pieces:
+For a value you assemble yourself, `Writer` takes each piece:
 
 ```zig
 var w: bencode.Writer = .init(&writer);
@@ -210,9 +210,9 @@ try w.writeInt(1);
 try w.endDict();
 ```
 
-`writeList` and `writeDict` take a slice and a `*const Dict`. An int writes as
-`i{d}e`, a byte string as `{d}:{s}`, so both use the same decimal formatting
-bencode requires.
+`beginDict` and `endDict` bracket a dict; `beginList` and `endList` bracket a
+list. `writeList` takes a `[]const Value` and `writeDict` a `*const Dict` when
+the container already exists.
 
 # Limits
 
