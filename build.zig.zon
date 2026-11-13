@@ -5,8 +5,8 @@
     .minimum_zig_version = "0.16.0",
     .dependencies = .{
         .stdx = .{
-            .url = "https://baskingspot.dev/stdx/v0.3.0.tar.gz",
-            .hash = "stdx-0.3.0-CcWego4nDwC5PxPd4F-nlcOWXxAVCZ6MDI5f3YNVNSO7",
+            .url = "https://baskingspot.dev/stdx/v0.5.0.tar.gz",
+            .hash = "stdx-0.5.0-CcWegogqEQAvbEzD5F1r02a42hPX7GV82njuREakeC3a",
         },
         .testingx = .{
             .url = "https://baskingspot.dev/testingx/v0.4.0.tar.gz",
