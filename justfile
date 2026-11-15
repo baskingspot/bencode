@@ -13,7 +13,7 @@ test:
 [doc("Lint Zig, Nix, Markdown, the workflows, and this justfile: ziglint, the shared ast-grep rules, zig fmt, nix fmt, oxfmt, actionlint, zizmor, and just --fmt")]
 [group("lint")]
 lint:
-    ziglint-0-16
+    ziglint-0-17
     baskingspot-lint src
     zig fmt --check src docs/examples build.zig build.zig.zon
     nix fmt -- --ci
@@ -30,7 +30,7 @@ fmt:
     oxfmt README.md AGENTS.md CHANGELOG.md docs/content docs/config.toml .github .oxfmtrc.jsonc
     just --fmt
 
-[doc("The per-version gate: the unit tests and the guide's examples")]
+[doc("The gate: the unit tests and the guide's examples")]
 [group("ci")]
 check: test
 

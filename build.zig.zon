@@ -2,7 +2,7 @@
     .name = .bencode,
     .version = "0.1.1",
     .fingerprint = 0xa92f3af38b4bf409, // Changing this has security and trust implications.
-    .minimum_zig_version = "0.16.0",
+    .minimum_zig_version = "0.17.0",
     .dependencies = .{
         .stdx = .{
             .url = "https://baskingspot.dev/stdx/v0.5.0.tar.gz",
